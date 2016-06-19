@@ -15,14 +15,19 @@ object TddTestReporterPlugin extends AutoPlugin {
 
   object autoImport {
     val tddStart = inputKey[Unit]("Starts a tdd session by getting a tdd session id")
+    val tddStop = inputKey[Unit]("Stops a tdd session by getting removing the tdd session id")
   }
 
   override lazy val projectSettings = super.projectSettings ++ Seq(
     testListeners += new TddTestReporter,
 
     autoImport.tddStart := {
-      val resp = Http("http://localhost:3000/session").postForm(Seq("timestamp" -> formatter.format(new Date))).asString 
-      println(resp)
+      val resp = Http("http://localhost:3000/session").postForm(Seq("timestamp" -> formatter.format(new Date))).asString
+      sessId = resp.body.split(",").head.split(":").drop(1).headOption.map(_.toInt)
+    },
+
+    autoImport.tddStop := {
+      sessId = None
     }
   )
 
@@ -39,16 +44,30 @@ class TddTestReporter extends TestsListener {
   override def doInit(): Unit = {}
 
   override def doComplete(finalResult: TestResult.Value): Unit = {
-   
-    println(TddTestReporterPlugin.sessId)
-    println("")
-    println("@@@@@@ Passed details to TDD metric engine @@@@@@")
-    println(s"Current date/time: ${new java.util.Date}")
-    println(s"Failing test count: $failureCount")
-    println(s"Failing test IDs: " + failingTestIds.mkString(", "))
-    println("")
-    Http("http://localhost:3000/session/111/snapshot").postForm(Seq("timestamp" -> "2016-12-04 12:35:26", "failingTestCount" -> "3", "failingTestNames" -> failingTestIds.mkString(", "))).asString
 
+    if (TddTestReporterPlugin.sessId.isDefined) {
+      println("")
+      println("~~~~~ Reporting TDD metrics ~~~~~")
+      println(s"~ Session is: ${TddTestReporterPlugin.sessId}")
+      println(s"~ Current date/time: ${new java.util.Date}")
+      println(s"~ Failing test count: $failureCount")
+      println(s"~ Failing test IDs: " + failingTestIds.mkString(", "))
+      println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+      println("")
+
+      Http(s"http://localhost:3000/session/${TddTestReporterPlugin.sessId}/snapshot").postForm(Seq(
+        "timestamp" -> TddTestReporterPlugin.formatter.format(new Date),
+        "failingTestCount" -> failureCount.toString,
+        "failingTestNames" -> failingTestIds.mkString(", "))).asString
+
+    } else {
+      println("")
+      println("~~~~~ TDD metrics ~~~~~")
+      println("No TDD session started: run `tddStart` to begin and `tddStop` to stop a session")
+      println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+      println("")
+
+    }
   }
 
   override def testEvent(event: TestEvent): Unit = {
