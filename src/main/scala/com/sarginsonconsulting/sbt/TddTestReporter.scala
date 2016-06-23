@@ -15,18 +15,30 @@ object TddTestReporterPlugin extends AutoPlugin {
 
   object autoImport {
     val tddStart = inputKey[Unit]("Starts a tdd session by getting a tdd session id")
-    val tddStop = inputKey[Unit]("Stops a tdd session by getting removing the tdd session id")
+    val tddDetails = inputKey[Unit]("Returns the stats for the specified tdd session")
+    val tddEnd = inputKey[Unit]("Ends a tdd session by getting removing the tdd session id")
   }
 
   override lazy val projectSettings = super.projectSettings ++ Seq(
     testListeners += new TddTestReporter,
 
     autoImport.tddStart := {
-      val resp = Http("http://localhost:3000/session").postForm(Seq("timestamp" -> formatter.format(new Date))).asString
+      val resp = Http("http://localhost:3000/session").postForm(Seq("timestamp" -> formatter.format(new Date), "projectBase" -> baseDirectory.value.getAbsolutePath)).asString
       sessId = resp.body.split(",").head.split(":").drop(1).headOption.map(_.toInt)
     },
 
-    autoImport.tddStop := {
+    autoImport.tddDetails := {
+      val resp = Http(s"http://localhost:3000/session/${TddTestReporterPlugin.sessId}/stats").postForm(Seq(
+        "timestamp" -> formatter.format(new Date))).asString
+      
+      println("")
+      println("~~~~~ Reporting TDD metrics ~~~~~")
+      println(resp.body)
+      println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+      println("")
+    },
+
+    autoImport.tddEnd := {
       sessId = None
     }
   )
@@ -63,7 +75,10 @@ class TddTestReporter extends TestsListener {
     } else {
       println("")
       println("~~~~~ TDD metrics ~~~~~")
-      println("No TDD session started: run `tddStart` to begin and `tddStop` to stop a session")
+      println("~ No TDD session started")
+      println("~ run `tddStart` to begin")
+      println("~ run `tddDetails` to see session statistics")
+      println("~ run `tddEnd` to stop a session")
       println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
       println("")
 
