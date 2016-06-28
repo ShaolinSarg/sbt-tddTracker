@@ -34,7 +34,7 @@ object TddTestReporterPlugin extends AutoPlugin {
         val resp = Http("http://localhost:3000/session").postForm(Seq(
           "timestamp" -> formatter.format(new Date),
           "projectBase" -> baseDirectory.value.getAbsolutePath,
-          "watchedFiles" -> Seq(".scala"))).asString
+          "watchedFiles" -> ".scala")).asString
         
         sessId = resp.body.split(",").head.split(":").drop(1).headOption.map(_.toInt)
       }
