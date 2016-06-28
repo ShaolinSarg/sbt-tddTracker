@@ -23,8 +23,21 @@ object TddTestReporterPlugin extends AutoPlugin {
     testListeners += new TddTestReporter,
 
     autoImport.tddStart := {
-      val resp = Http("http://localhost:3000/session").postForm(Seq("timestamp" -> formatter.format(new Date), "projectBase" -> baseDirectory.value.getAbsolutePath)).asString
-      sessId = resp.body.split(",").head.split(":").drop(1).headOption.map(_.toInt)
+      if (sessId.isDefined) {
+        println("")
+        println("~~~~~~~~~~~~ TDD metrics ~~~~~~~~~~~~")
+        println("Session already started with ID: ${sessId.get}")
+        println("run `tddEnd` to close the current session")
+        println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        println("")
+      } else {
+        val resp = Http("http://localhost:3000/session").postForm(Seq(
+          "timestamp" -> formatter.format(new Date),
+          "projectBase" -> baseDirectory.value.getAbsolutePath,
+          "watchedFiles" -> Seq(".scala"))).asString
+        
+        sessId = resp.body.split(",").head.split(":").drop(1).headOption.map(_.toInt)
+      }
     },
 
     autoImport.tddDetails := {
