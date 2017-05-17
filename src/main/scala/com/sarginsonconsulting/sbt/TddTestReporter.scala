@@ -1,4 +1,4 @@
-package com.sarginsonconsulting.sbt
+package com.sarginson.sbt
 
 
 import sbt._
@@ -104,7 +104,6 @@ class TddTestReporter extends TestsListener {
 
     failingTestIds = failingTestIds ++ event.detail.filter(isFailingTest).map(t => t.fullyQualifiedName)
     failureCount = failureCount + failingCount
-    //runtime = event.detail.map(t => t.duration).reduce(_ + _)
   }
 
   override def startGroup(name: String): Unit = ()
