@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import sbt.Keys.{baseDirectory, testListeners}
+import sbt.testing.Status.{Error, Failure}
 import sbt.{AllRequirements, AutoPlugin, TestEvent, TestResult, TestsListener, inputKey}
 
 import scalaj.http.Http
@@ -67,7 +68,7 @@ class TddTestReporter extends TestsListener {
 
   override def doInit(): Unit = {}
 
-  override def doComplete(finalResult: TestResult.Value): Unit = {
+  override def doComplete(finalResult: TestResult): Unit = {
 
     if (TddTestReporterPlugin.sessId.isDefined) {
       println("")
@@ -98,7 +99,7 @@ class TddTestReporter extends TestsListener {
   }
 
   override def testEvent(event: TestEvent): Unit = {
-    def isFailingTest(event: sbt.testing.Event): Boolean = (event.status == Error) || (event.status==Failure)
+    def isFailingTest(event: sbt.testing.Event): Boolean = (event.status == Error) || (event.status == Failure)
     def failingCount:Int = event.detail.count(isFailingTest)
 
     failingTestIds = failingTestIds ++ event.detail.filter(isFailingTest).map(t => t.fullyQualifiedName)
@@ -107,6 +108,6 @@ class TddTestReporter extends TestsListener {
 
   override def startGroup(name: String): Unit = ()
   override def endGroup(name: String, t: Throwable): Unit = ()
-  override def endGroup(name: String, result: TestResult.Value): Unit = ()
+  override def endGroup(name: String, result: TestResult): Unit = ()
 
 }
