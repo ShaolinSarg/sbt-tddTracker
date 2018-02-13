@@ -1,12 +1,12 @@
-package com.sarginson.sbt
+package sarginson.sbt
 
-
-import sbt._
-import Keys._
-import sbt.testing.Status.{Failure, Error}
-import scalaj.http._
-import java.util.Date
 import java.text.SimpleDateFormat
+import java.util.Date
+
+import sbt.Keys.{baseDirectory, testListeners}
+import sbt.{AllRequirements, AutoPlugin, TestEvent, TestResult, TestsListener, inputKey}
+
+import scalaj.http.Http
 
 object TddTestReporterPlugin extends AutoPlugin {
 
@@ -35,7 +35,7 @@ object TddTestReporterPlugin extends AutoPlugin {
           "timestamp" -> formatter.format(new Date),
           "projectBase" -> baseDirectory.value.getAbsolutePath,
           "watchedFiles" -> ".scala")).asString
-        
+
         sessId = resp.body.split(",").head.split(":").drop(1).headOption.map(_.toInt)
       }
     },
@@ -43,7 +43,7 @@ object TddTestReporterPlugin extends AutoPlugin {
     autoImport.tddDetails := {
       val resp = Http(s"http://localhost:3000/session/${TddTestReporterPlugin.sessId}/stats").postForm(Seq(
         "timestamp" -> formatter.format(new Date))).asString
-      
+
       println("")
       println("~~~~~ Reporting TDD metrics ~~~~~")
       println(resp.body)
@@ -59,8 +59,7 @@ object TddTestReporterPlugin extends AutoPlugin {
   override val trigger = AllRequirements
 }
 
-
-class TddTestReporter extends TestsListener { 
+class TddTestReporter extends TestsListener {
 
   var failureCount: Int = 0
   var failingTestIds: Set[String] = Set()
