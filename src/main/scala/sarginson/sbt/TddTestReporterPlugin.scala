@@ -27,7 +27,7 @@ object TddTestReporterPlugin extends AutoPlugin {
       if (sessId.isDefined) {
         println("")
         println("~~~~~~~~~~~~ TDD metrics ~~~~~~~~~~~~")
-        println("Session already started with ID: ${sessId.get}")
+        println(s"Session already started with ID: ${sessId.get}")
         println("run `tddEnd` to close the current session")
         println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         println("")
@@ -41,7 +41,10 @@ object TddTestReporterPlugin extends AutoPlugin {
           .postData(postData)
           .asString
 
-        sessId = resp.body.split(",").head.split(":").drop(1).headOption.map(_.toInt)
+        sessId = resp.header("Location").map(
+          _.split("/")
+            .last
+            .toInt)
       }
     },
 
