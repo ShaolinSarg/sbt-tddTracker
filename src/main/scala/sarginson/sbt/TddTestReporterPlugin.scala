@@ -3,10 +3,10 @@ package sarginson.sbt
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import sbt.Keys.{baseDirectory, testListeners}
+//import play.api.libs.json.{JsValue, Json}
+import sbt.Keys.testListeners
 import sbt.testing.Status.{Error, Failure}
 import sbt.{AllRequirements, AutoPlugin, TestEvent, TestResult, TestsListener, inputKey}
-
 import scalaj.http.Http
 
 object TddTestReporterPlugin extends AutoPlugin {
@@ -33,12 +33,17 @@ object TddTestReporterPlugin extends AutoPlugin {
         println("")
       } else {
 
-        val postData: String = s"""{"timestamp" : "${formatter.format(new Date)}",""" +
-          """"watchedFiles" : ".scala"}"""
+//        val data: JsValue = Json.obj("timestamp" -> formatter.format(new Date),
+//                                     "watchedFiles" -> ".scala")
 
-        val resp = Http("http://localhost:3000/session")
+
+        val data: String = s"""{"timestamp" : "${formatter.format(new Date)}",
+                             | "watchedFiles" : ".scala"}""".stripMargin
+
+        val resp = Http("http://localhost:3000/sessions")
           .headers("content-type" -> "application/json")
-          .postData(postData)
+          .postData(data)
+//          .postData(Json.stringify(data))
           .asString
 
         sessId = resp.header("Location").map(
@@ -49,7 +54,7 @@ object TddTestReporterPlugin extends AutoPlugin {
     },
 
     autoImport.tddDetails := {
-      val resp = Http(s"http://localhost:3000/session/${TddTestReporterPlugin.sessId}/stats").postForm(Seq(
+      val resp = Http(s"http://localhost:3000/sessions/${TddTestReporterPlugin.sessId}/stats").postForm(Seq(
         "timestamp" -> formatter.format(new Date))).asString
 
       println("")
@@ -87,10 +92,22 @@ class TddTestReporter extends TestsListener {
       println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
       println("")
 
-      Http(s"http://localhost:3000/session/${TddTestReporterPlugin.sessId}/snapshot").postForm(Seq(
-        "timestamp" -> TddTestReporterPlugin.formatter.format(new Date),
-        "failingTestCount" -> failureCount.toString,
-        "failingTestNames" -> failingTestIds.mkString(", "))).asString
+//      val data: JsValue = Json.obj(
+//        "timestamp" -> TddTestReporterPlugin.formatter.format(new Date),
+//        "failingTestCount" -> failureCount)
+//        "failingTestNames" -> Json.arr(failingTestIds)
+
+      val data: String =
+        s"""{"timestamp" : "${TddTestReporterPlugin.formatter.format(new Date)}",
+           | "failingTestCount" : ${failureCount},
+           | "failingTestNames" : "${failingTestIds.mkString(", ")}"}"
+         """.stripMargin
+
+      Http(s"http://localhost:3000/sessions/${TddTestReporterPlugin.sessId.get}/snapshots")
+        .headers("content-type" -> "application/json")
+        .postData(data)
+        //          .postData(Json.stringify(data))
+        .asString
 
     } else {
       println("")
