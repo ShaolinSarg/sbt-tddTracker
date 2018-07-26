@@ -4,6 +4,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 import org.mockito.Mockito.{never, times, verify, when}
 import org.mockito.Matchers.anyString
+import play.api.libs.json.Json
 import sarginson.sbt.domain.TestSnapshot
 import sbt.TestEvent
 import sbt.protocol.testing.TestResult
@@ -31,9 +32,9 @@ class TddTestReporterSpec extends WordSpec
 
 
   "generate the correct test run payload" in {
-    val jsonPayload = """{"timestamp":"2018-08-10 23:30:20","failingTestCount":4,"failingTestNames":["testSpec.scala", "testSpec2.scala"]}"""
+    val jsonPayload = """{"timestamp":"2018-08-10 23:30:20","failingTestCount":4,"failingTestNames":["testSpec.scala","testSpec2.scala"]}"""
 
-    createSUT.generateTestSnapshot(snapshot) shouldBe jsonPayload
+    Json.stringify(createSUT.generateTestSnapshot(snapshot)) shouldBe jsonPayload
   }
 
   "sendTestSnapshot" should {

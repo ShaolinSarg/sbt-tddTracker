@@ -1,8 +1,10 @@
 package sarginson.sbt
 
 import java.text.SimpleDateFormat
+
+import play.api.libs.json.{JsValue, Json}
 import sarginson.sbt.domain.TestSnapshot
-import sbt.{ TestEvent, TestResult, TestsListener }
+import sbt.{TestEvent, TestResult, TestsListener}
 import sbt.testing.Status.{Error, Failure}
 
 trait TddTestReporterTested extends TestsListener {
@@ -14,16 +16,18 @@ trait TddTestReporterTested extends TestsListener {
   var failingTestIds: List[String] = Nil
 
 
-  def generateTestSnapshot(t: TestSnapshot): String = {
-    s"""{"timestamp":"${dateFormatter.format(t.timestamp)}","failingTestCount":${t.failingTestCount},"failingTestNames":[${t.failingTestNames.mkString("\"","\", \"", "\"")}]}"""
+  def generateTestSnapshot(t: TestSnapshot): JsValue = {
 
+    Json.obj(
+      "timestamp" -> dateFormatter.format(t.timestamp),
+      "failingTestCount" -> t.failingTestCount,
+      "failingTestNames" -> t.failingTestNames)
   }
 
   def sendTestSnapshot(t: TestSnapshot): Int = {
-    val requestBody: String = generateTestSnapshot(t)
+    val requestBody: JsValue = generateTestSnapshot(t)
 
-    val resp: Int = httpClient.doPost(requestBody).code
-    resp
+    httpClient.doPost(Json.stringify(requestBody)).code
   }
 
 
