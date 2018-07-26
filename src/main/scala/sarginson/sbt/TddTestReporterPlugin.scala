@@ -3,16 +3,17 @@ package sarginson.sbt
 import java.text.SimpleDateFormat
 import java.util.Date
 
-//import play.api.libs.json.{JsValue, Json}
+import scalaj.http.HttpResponse
+
 import sbt.Keys.testListeners
-import sbt.testing.Status.{Error, Failure}
-import sbt.{AllRequirements, AutoPlugin, TestEvent, TestResult, TestsListener, inputKey}
+import sbt.{AllRequirements, AutoPlugin, inputKey}
 import scalaj.http.Http
 
 object TddTestReporterPlugin extends AutoPlugin {
 
   var sessId: Option[Int] = None
   val formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+  val tddReporter = ScalajTestReporter 
 
   object autoImport {
     val tddStart = inputKey[Unit]("Starts a tdd session by getting a tdd session id")
@@ -20,8 +21,8 @@ object TddTestReporterPlugin extends AutoPlugin {
     val tddEnd = inputKey[Unit]("Ends a tdd session by getting removing the tdd session id")
   }
 
-  override lazy val projectSettings = super.projectSettings ++ Seq(
-    testListeners += new TddTestReporter,
+  override lazy val projectSettings =
+    super.projectSettings ++ Seq(testListeners += tddReporter,
 
     autoImport.tddStart := {
       if (sessId.isDefined) {
@@ -40,7 +41,7 @@ object TddTestReporterPlugin extends AutoPlugin {
         val data: String = s"""{"timestamp" : "${formatter.format(new Date)}",
                              | "watchedFiles" : ".scala"}""".stripMargin
 
-        val resp = Http("http://localhost:3000/sessions")
+        val resp: HttpResponse[String] = Http("http://localhost:3000/sessions")
           .headers("content-type" -> "application/json")
           .postData(data)
 //          .postData(Json.stringify(data))
@@ -70,68 +71,4 @@ object TddTestReporterPlugin extends AutoPlugin {
   )
 
   override val trigger = AllRequirements
-}
-
-class TddTestReporter extends TestsListener {
-
-  var failureCount: Int = 0
-  var failingTestIds: Set[String] = Set()
-  var runtime: Long = 0
-
-  override def doInit(): Unit = {}
-
-  override def doComplete(finalResult: TestResult): Unit = {
-
-    if (TddTestReporterPlugin.sessId.isDefined) {
-      println("")
-      println("~~~~~ Reporting TDD metrics ~~~~~")
-      println(s"~ Session is: ${TddTestReporterPlugin.sessId}")
-      println(s"~ Current date/time: ${new java.util.Date}")
-      println(s"~ Failing test count: $failureCount")
-      println(s"~ Failing test IDs: " + failingTestIds.mkString(", "))
-      println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-      println("")
-
-//      val data: JsValue = Json.obj(
-//        "timestamp" -> TddTestReporterPlugin.formatter.format(new Date),
-//        "failingTestCount" -> failureCount)
-//        "failingTestNames" -> Json.arr(failingTestIds)
-
-      val data: String =
-        s"""{"timestamp" : "${TddTestReporterPlugin.formatter.format(new Date)}",
-           | "failingTestCount" : ${failureCount},
-           | "failingTestNames" : "${failingTestIds.mkString(", ")}"}"
-         """.stripMargin
-
-      Http(s"http://localhost:3000/sessions/${TddTestReporterPlugin.sessId.get}/snapshots")
-        .headers("content-type" -> "application/json")
-        .postData(data)
-        //          .postData(Json.stringify(data))
-        .asString
-
-    } else {
-      println("")
-      println("~~~~~ TDD metrics ~~~~~")
-      println("~ No TDD session started")
-      println("~ run `tddStart` to begin")
-      println("~ run `tddDetails` to see session statistics")
-      println("~ run `tddEnd` to stop a session")
-      println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-      println("")
-
-    }
-  }
-
-  override def testEvent(event: TestEvent): Unit = {
-    def isFailingTest(event: sbt.testing.Event): Boolean = (event.status == Error) || (event.status == Failure)
-    def failingCount:Int = event.detail.count(isFailingTest)
-
-    failingTestIds = failingTestIds ++ event.detail.filter(isFailingTest).map(t => t.fullyQualifiedName)
-    failureCount = failureCount + failingCount
-  }
-
-  override def startGroup(name: String): Unit = ()
-  override def endGroup(name: String, t: Throwable): Unit = ()
-  override def endGroup(name: String, result: TestResult): Unit = ()
-
 }
