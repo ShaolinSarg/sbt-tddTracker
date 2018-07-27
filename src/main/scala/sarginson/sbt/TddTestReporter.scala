@@ -1,14 +1,12 @@
 package sarginson.sbt
 
 import java.text.SimpleDateFormat
-import play.api.libs.json.{JsValue, Json}
 import java.util.Date
 
-import sarginson.sbt.TddTestReporterPlugin.formatter
-import sarginson.sbt.domain.TestSnapshot
-import sbt.{TestEvent, TestResult, TestsListener}
-import sbt.testing.Status.{Error, Failure}
 import sarginson.sbt.connectors._
+import sarginson.sbt.domain.TestSnapshot
+import sbt.testing.Status.{Error, Failure}
+import sbt.{TestEvent, TestResult, TestsListener}
 import scalaj.http.HttpResponse
 
 
@@ -20,22 +18,26 @@ trait TddTestReporter extends TestsListener {
   var failureCount: Int = 0
   var failingTestIds: List[String] = Nil
 
-  def generateTddSession(): JsValue = {
-    Json.obj(
-      "timestamp" -> dateFormatter.format(new Date),
-      "watchedFiles" -> ".scala"
-    )
+  def generateTddSession(): String = {
+//    JsObject(
+//      "timestamp" -> JsString(dateFormatter.format(new Date)),
+//      "watchedFiles" -> JsArray(JsArray(JsString(".scala")))
+//    )
+
+    s"""{"timestamp":"${dateFormatter.format(new Date)}","watchedFiles":[".scala"]}"""
   }
 
-  def generateTestSnapshot(t: TestSnapshot): JsValue = {
-    Json.obj(
-      "timestamp" -> dateFormatter.format(t.timestamp),
-      "failingTestCount" -> t.failingTestCount,
-      "failingTestNames" -> t.failingTestNames)
+  def generateTestSnapshot(t: TestSnapshot): String = {
+//    JsObject(
+//      "timestamp" -> JsString(dateFormatter.format(t.timestamp)),
+//      "failingTestCount" -> JsNumber(t.failingTestCount),
+//      "failingTestNames" -> JsArray(t.failingTestNames.toVector.map(JsString(_))))
+
+    s"""{"timestamp":"${dateFormatter.format(t.timestamp)}","failingTestCount":${t.failingTestCount},"failingTestNames":[${t.failingTestNames.mkString("\"", "\",\"","\"")}]}"""
   }
 
   def sendTestSnapshot(t: TestSnapshot): Int = {
-    val requestBody: JsValue = generateTestSnapshot(t)
+    val requestBody: String = generateTestSnapshot(t)
 
     val resp: Int = httpClient.doPost(requestBody, SnapshotsUri(TddTestReporterPlugin.sessId.get)).code
     resp

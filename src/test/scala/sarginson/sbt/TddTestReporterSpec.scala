@@ -4,8 +4,7 @@ import org.mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 import org.mockito.Mockito.{never, times, verify, when}
-import org.mockito.Matchers.any
-import play.api.libs.json.{JsValue, Json}
+import org.mockito.Matchers.anyString
 import sarginson.sbt.connectors.{SessionsUri, SnapshotsUri, StatsUri}
 import sarginson.sbt.domain.TestSnapshot
 import sbt.TestEvent
@@ -36,7 +35,7 @@ class TddTestReporterSpec extends WordSpec
   "generate the correct test run payload" in {
     val jsonPayload = """{"timestamp":"2018-08-10 23:30:20","failingTestCount":4,"failingTestNames":["testSpec.scala","testSpec2.scala"]}"""
 
-    Json.stringify(createSUT.generateTestSnapshot(snapshot)) shouldBe jsonPayload
+    createSUT.generateTestSnapshot(snapshot) shouldBe jsonPayload
   }
 
   "sendTestSnapshot" should {
@@ -46,7 +45,7 @@ class TddTestReporterSpec extends WordSpec
 
       TddTestReporterPlugin.sessId = Some(23)
 
-      when(sut.httpClient.doPost(any[JsValue], mockito.Matchers.eq(SnapshotsUri(23))))
+      when(sut.httpClient.doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23))))
         .thenReturn(HttpResponse[String]("", 200, Map.empty))
 
       sut.sendTestSnapshot(snapshot) shouldBe 200
@@ -77,13 +76,13 @@ class TddTestReporterSpec extends WordSpec
 
         TddTestReporterPlugin.sessId = None
 
-        when(sut.httpClient.doPost(any[JsValue], mockito.Matchers.eq(SnapshotsUri(23))))
+        when(sut.httpClient.doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23))))
           .thenReturn(HttpResponse[String]("", 200, Map.empty))
 
         sut.doComplete(TestResult.Failed)
 
         verify(sut.httpClient, never)
-                  .doPost(any[JsValue], mockito.Matchers.eq(SnapshotsUri(23)))
+                  .doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23)))
       }
     }
     "send test results" when {
@@ -92,13 +91,13 @@ class TddTestReporterSpec extends WordSpec
 
         TddTestReporterPlugin.sessId = Some(23)
 
-        when(sut.httpClient.doPost(any[JsValue], mockito.Matchers.eq(SnapshotsUri(23))))
+        when(sut.httpClient.doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23))))
           .thenReturn(HttpResponse[String]("", 200, Map.empty))
 
         sut.doComplete(TestResult.Failed)
 
         verify(sut.httpClient, times(1))
-                  .doPost(any[JsValue], mockito.Matchers.eq(SnapshotsUri(23)))
+                  .doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23)))
       }
     }
   }
@@ -123,7 +122,7 @@ class TddTestReporterSpec extends WordSpec
     "retrieve a session id from the server" in {
       val sut = createSUT
 
-      when(sut.httpClient.doPost(any[JsValue], mockito.Matchers.eq(SessionsUri)))
+      when(sut.httpClient.doPost(anyString, mockito.Matchers.eq(SessionsUri)))
         .thenReturn(HttpResponse[String]("", 200, Map("Location" -> IndexedSeq("http://localhost:2999/sessions/4"))))
 
       val resp = sut.startTDDSession()
