@@ -1,9 +1,11 @@
 package sarginson.sbt
 
+import org.mockito
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 import org.mockito.Mockito.{never, times, verify, when}
 import org.mockito.Matchers.anyString
+import sarginson.sbt.connectors.{SessionsUri, SnapshotsUri, StatsUri}
 import sarginson.sbt.domain.TestSnapshot
 import sbt.TestEvent
 import sbt.protocol.testing.TestResult
@@ -14,7 +16,7 @@ class TddTestReporterSpec extends WordSpec
     with Matchers
     with MockitoSugar {
 
-  def createSUT = new TddTestReporterTested {
+  def createSUT = new TddTestReporter {
     override val httpClient = mock[HttpClient]
   }
 
@@ -40,12 +42,13 @@ class TddTestReporterSpec extends WordSpec
     "send the test run details to the server" in {
 
       val sut = createSUT
-      when(sut.httpClient.doPost(anyString))
+
+      TddTestReporterPlugin.sessId = Some(23)
+
+      when(sut.httpClient.doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23))))
         .thenReturn(HttpResponse[String]("", 200, Map.empty))
 
       sut.sendTestSnapshot(snapshot) shouldBe 200
-
-      verify(sut.httpClient, times(1)).doPost(anyString)
     }
   }
   "testEvent" should {
@@ -73,12 +76,13 @@ class TddTestReporterSpec extends WordSpec
 
         TddTestReporterPlugin.sessId = None
 
-        when(sut.httpClient.doPost(anyString))
+        when(sut.httpClient.doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23))))
           .thenReturn(HttpResponse[String]("", 200, Map.empty))
 
         sut.doComplete(TestResult.Failed)
 
-        verify(sut.httpClient, never).doPost(anyString)
+        verify(sut.httpClient, never)
+          .doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23)))
       }
     }
     "send test results" when {
@@ -87,13 +91,57 @@ class TddTestReporterSpec extends WordSpec
 
         TddTestReporterPlugin.sessId = Some(23)
 
-        when(sut.httpClient.doPost(anyString))
+        when(sut.httpClient.doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23))))
           .thenReturn(HttpResponse[String]("", 200, Map.empty))
 
         sut.doComplete(TestResult.Failed)
 
-        verify(sut.httpClient, times(1)).doPost(anyString)
+        verify(sut.httpClient, times(1))
+          .doPost(anyString, mockito.Matchers.eq(SnapshotsUri(23)))
       }
+    }
+  }
+  "doInit" should {
+    "reset mutable variables" in {
+      val sut = createSUT
+
+      sut.failingTestIds = List("this", "that")
+      sut.failureCount = 3
+
+      sut.failingTestIds.size shouldBe 2
+      sut.failureCount shouldBe 3
+
+      sut.doInit()
+
+      sut.failingTestIds.size shouldBe 0
+      sut.failureCount shouldBe 0
+    }
+  }
+
+  "startTDDSession" should {
+    "retrieve a session id from the server" in {
+      val sut = createSUT
+
+      when(sut.httpClient.doPost(anyString, mockito.Matchers.eq(SessionsUri)))
+        .thenReturn(HttpResponse[String]("", 200, Map("Location" -> IndexedSeq("http://localhost:2999/sessions/4"))))
+
+      val resp = sut.startTDDSession()
+
+      resp shouldBe Some(4)
+    }
+  }
+
+  "tddStatistics" should {
+    "request the statistics for the given session" in {
+      val sut = createSUT
+
+      when(sut.httpClient.doGet(mockito.Matchers.eq(StatsUri(23))))
+        .thenReturn(HttpResponse[String]("this is the statistics", 200, Map.empty))
+
+      val resp = sut.statisticsForSession(23)
+
+      resp shouldBe "this is the statistics"
+
     }
   }
 }
