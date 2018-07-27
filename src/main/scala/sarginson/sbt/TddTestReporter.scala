@@ -1,13 +1,18 @@
 package sarginson.sbt
 
 import java.text.SimpleDateFormat
-
 import play.api.libs.json.{JsValue, Json}
+import java.util.Date
+
+import sarginson.sbt.TddTestReporterPlugin.formatter
 import sarginson.sbt.domain.TestSnapshot
 import sbt.{TestEvent, TestResult, TestsListener}
 import sbt.testing.Status.{Error, Failure}
+import sarginson.sbt.connectors._
+import scalaj.http.HttpResponse
 
-trait TddTestReporterTested extends TestsListener {
+
+trait TddTestReporter extends TestsListener {
   val httpClient: HttpClient
 
   val dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
@@ -15,9 +20,14 @@ trait TddTestReporterTested extends TestsListener {
   var failureCount: Int = 0
   var failingTestIds: List[String] = Nil
 
+  def generateTddSession(): JsValue = {
+    Json.obj(
+      "timestamp" -> dateFormatter.format(new Date),
+      "watchedFiles" -> ".scala"
+    )
+  }
 
   def generateTestSnapshot(t: TestSnapshot): JsValue = {
-
     Json.obj(
       "timestamp" -> dateFormatter.format(t.timestamp),
       "failingTestCount" -> t.failingTestCount,
@@ -27,7 +37,8 @@ trait TddTestReporterTested extends TestsListener {
   def sendTestSnapshot(t: TestSnapshot): Int = {
     val requestBody: JsValue = generateTestSnapshot(t)
 
-    httpClient.doPost(Json.stringify(requestBody)).code
+    val resp: Int = httpClient.doPost(requestBody, SnapshotsUri(TddTestReporterPlugin.sessId.get)).code
+    resp
   }
 
 
@@ -64,14 +75,27 @@ trait TddTestReporterTested extends TestsListener {
       println("~~~~~ TDD metrics ~~~~~")
       println("~ No TDD session started")
       println("~ run `tddStart` to begin")
-      println("~ run `tddDetails` to see session statistics")
+      println("~ run `tddStatistics` to see session statistics")
       println("~ run `tddEnd` to stop a session")
       println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
       println("")
-
     }
   }
 
+  def startTDDSession(): Option[Int] = {
+
+    httpClient.doPost(generateTddSession(), SessionsUri)
+      .header("Location")
+      .map(
+        _.split("/")
+          .last
+          .toInt)
+  }
+
+  def statisticsForSession(sessionId: Int): String = {
+    val resp:HttpResponse[String] = httpClient.doGet(StatsUri(sessionId))
+    resp.body
+  }
 
   override def doInit(): Unit = {
     failureCount = 0
@@ -84,6 +108,6 @@ trait TddTestReporterTested extends TestsListener {
 
 }
 
-object ScalajTestReporter extends TddTestReporterTested {
+object ScalajTestReporter extends TddTestReporter {
   override val httpClient = ScalajHttpClient
 }
